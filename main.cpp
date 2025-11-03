@@ -110,7 +110,7 @@ int main(int argc, char **argv) {
     progress_bar->value(0.0);
     progress_bar->label("进度显示");
     
-    result_box = new Fl_Multiline_Output(20, 160, 300, 90);
+    result_box = new Fl_Multiline_Output(20, 160, 300, 110);
     result_box->box(FL_DOWN_BOX);
     result_box->value("请选择待匹配图像");
 

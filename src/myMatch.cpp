@@ -1,8 +1,8 @@
 #include <cmath>
 #include "myMatch.hpp"
 
-double NCC_2d (const cv::Mat &srcPatch, const cv::Mat &dstPatch) {
-    CV_Assert(srcPatch.size() == dstPatch.size());
+template<typename T>
+double NCC_2d_impl (const cv::Mat &srcPatch, const cv::Mat &dstPatch) {
     int rows = srcPatch.rows;
     int cols = srcPatch.cols;
     double sumSrc = 0.0, sumDst = 0.0;
@@ -10,10 +10,10 @@ double NCC_2d (const cv::Mat &srcPatch, const cv::Mat &dstPatch) {
     double sumCross = 0.0;
     int count = 0;
 
-    for (int r = 0; r <= rows; r++) {
-        for (int c = 0; c <= cols; c++) {
-            double srcVal = static_cast<double>(srcPatch.at<uchar>(r, c));
-            double dstVal = static_cast<double>(dstPatch.at<uchar>(r, c));
+    for (int r = 0; r < rows; r++) {
+        for (int c = 0; c < cols; c++) {
+            double srcVal = static_cast<double>(srcPatch.at<T>(r, c));
+            double dstVal = static_cast<double>(dstPatch.at<T>(r, c));
 
             sumSrc += srcVal;
             sumDst += dstVal;
@@ -37,6 +37,22 @@ double NCC_2d (const cv::Mat &srcPatch, const cv::Mat &dstPatch) {
     if (denominator == 0) return 0.0;
 
     return numerator / denominator;
+}
+double NCC_2d(const cv::Mat &srcPatch, const cv::Mat &dstPatch) {
+    CV_Assert(srcPatch.size() == dstPatch.size());
+    
+    switch(srcPatch.type()) {
+        case CV_8U:
+            return NCC_2d_impl<uchar>(srcPatch, dstPatch);
+        case CV_64F:
+            return NCC_2d_impl<double>(srcPatch, dstPatch);
+        default:
+            // 对于其他类型，转换为 double 处理
+            cv::Mat srcDouble, dstDouble;
+            srcPatch.convertTo(srcDouble, CV_64F);
+            dstPatch.convertTo(dstDouble, CV_64F);
+            return NCC_2d_impl<double>(srcDouble, dstDouble);
+    }
 }
 
 // 双线性插值函数
@@ -267,7 +283,7 @@ void lsqMatch(const cv::Mat &srcImg,
         }
         
         // 保存结果
-        if (preNCC > 0.8) { // 设置阈值
+        if (preNCC > 0.9) { // 设置阈值
             x2 = a0 + a1 * x1 + a2 * y1;
             y2 = b0 + b1 * x1 + b2 * y1;
             CMatch matchLsq;

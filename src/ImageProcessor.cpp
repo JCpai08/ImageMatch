@@ -68,6 +68,7 @@ bool ImageProcessor::processImages(Fl_Progress* progress) {
         oss << "匹配耗时: " << match_time_ms << "ms" << std::endl;
         oss << "匹配结果: " << matches.size() << "对特征点" << std::endl;
         oss << "单点最小二乘匹配优化耗时: " << lsq_time_ms << "ms" << std::endl;
+        oss << "单点最小二乘匹配结果: " << matchesLsq.size() << "对特征点" << std::endl;
         output = oss.str();
         std::ostringstream oss_result;
         int n = 0;
