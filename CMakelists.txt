@@ -1,0 +1,29 @@
+cmake_minimum_required(VERSION 4.0)
+
+PROJECT(Image_Match)
+
+find_package(OpenCV REQUIRED)
+
+add_subdirectory(thirdparty/fltk-1.4.4)
+# target_include_directories(my_fltk_app PRIVATE ${FLTK_INCLUDE_DIRS})
+
+include_directories(
+    ${PROJECT_SOURCE_DIR}/thirdparty/eigen/3.4.0_1/include
+    ${PROJECT_SOURCE_DIR}/src
+)
+
+add_executable(${PROJECT_NAME} 
+    main.cpp
+    src/ImageProcessor.cpp
+    src/myHarrisDetector.cpp
+    src/myMatch.cpp
+    )
+
+target_link_libraries(${PROJECT_NAME} 
+    PRIVATE 
+        fltk::fltk
+        fltk::images
+        $<$<BOOL:${FLTK_BUILD_GL}>:fltk::gl>
+)
+target_link_libraries(${PROJECT_NAME} PRIVATE ${OpenCV_LIBS})
+
