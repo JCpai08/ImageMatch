@@ -75,6 +75,7 @@ bool ImageProcessor::processImages(Fl_Progress* progress) {
             // n++;
             // if (n > 10) break; // 只显示前10个匹配点
             oss_result << match.srcPt.x << ", " << match.srcPt.y <<", "<< match.dstPt.x << ", " << match.dstPt.y << std::endl;
+            oss_result << "dist: " << match.dist << std::endl;
         }
         result = oss_result.str();
         cv::Mat img_match;

@@ -167,36 +167,15 @@ void lsqMatch(const cv::Mat &srcImg,
         double h1 = 1.0;
         
         // 相关系数
-        double formerCoefficient = 0.0;
-        double latterCoefficient = 0.0;
-        
-        // 最佳匹配点位
-        double formerResX = 0.0;
-        double formerResY = 0.0;
-        double rightResX = 0.0;
-        double rightResY = 0.0;
-        
-        bool firstIteration = true;
+        double preNCC{matches[i].dist};
+        double currNCC;
+    
         int cnt{0};
         // 迭代优化
         for(;; cnt++) {
             // 结束条件
             if (cnt > 10) break;
-            if ((!firstIteration) && (latterCoefficient < formerCoefficient)) break;
-            if (!firstIteration) {
-                formerResX = rightResX;
-                formerResY = rightResY;
-                formerCoefficient = latterCoefficient;
-            } else {
-                firstIteration = false;
-            }
-            
-            // 计算因子
-            double factor1 = 0.0;
-            double factor1_2 = 0.0;
-            double factor2 = 0.0;
-            double factor2_2 = 0.0;
-            
+
             // 创建矩阵
             cv::Mat matA = cv::Mat::zeros(windowSize * windowSize, 8, CV_64F);
             cv::Mat matL = cv::Mat::zeros(windowSize * windowSize, 1, CV_64F);
@@ -216,50 +195,40 @@ void lsqMatch(const cv::Mat &srcImg,
                     if (x_1 < 1 || x_1 >= srcImg.cols - 1 || y_1 < 1 || y_1 >= srcImg.rows - 1)
                         continue;
                     
-                    double newRX = a0 + a1 * x_1 + a2 * y_1;
-                    double newRY = b0 + b1 * x_1 + b2 * y_1;
+                    double x_2 = a0 + a1 * x_1 + a2 * y_1;
+                    double y_2 = b0 + b1 * x_1 + b2 * y_1;
                     
                     // 双线性插值
-                    double newRGray = bilinearInterpolation(dstImg, newRX, newRY);
+                    double g2 = bilinearInterpolation(dstImg, x_2, y_2);
                     
                     // 辐射校正
-                    double radioRGrey = newRGray * h1 + h0;
-                    dstPatch.at<double>(m, n) = radioRGrey;
+                    g2 = g2 * h1 + h0;
+                    dstPatch.at<double>(m, n) = g2;
                     
                     // 检查边界
-                    if (newRY < 1 || newRY >= dstImg.rows - 1 || newRX < 1 || newRX >= dstImg.cols - 1)
+                    if (y_2 < 1 || y_2 >= dstImg.rows - 1 || x_2 < 1 || x_2 >= dstImg.cols - 1)
                         continue;
                     
                     // 计算梯度
-                    double dgx = (static_cast<double>(dstImg.at<uchar>(static_cast<int>(newRY), static_cast<int>(newRX) + 1)) - 
-                                 static_cast<double>(dstImg.at<uchar>(static_cast<int>(newRY), static_cast<int>(newRX) - 1))) / 2.0;
-                    double dgy = (static_cast<double>(dstImg.at<uchar>(static_cast<int>(newRY) + 1, static_cast<int>(newRX))) - 
-                                 static_cast<double>(dstImg.at<uchar>(static_cast<int>(newRY) - 1, static_cast<int>(newRX)))) / 2.0;
-                    
-                    double leftDgx = (static_cast<double>(srcImg.at<uchar>(y_1, x_1 + 1)) - 
-                                     static_cast<double>(srcImg.at<uchar>(y_1, x_1 - 1))) / 2.0;
-                    double leftDgy = (static_cast<double>(srcImg.at<uchar>(y_1 + 1, x_1)) - 
-                                     static_cast<double>(srcImg.at<uchar>(y_1 - 1, x_1))) / 2.0;
-                    
-                    factor1 += x_1 * leftDgx * leftDgx;
-                    factor1_2 += leftDgx * leftDgx;
-                    factor2 += y_1 * leftDgy * leftDgy;
-                    factor2_2 += leftDgy * leftDgy;
+                    double dgx = (static_cast<double>(dstImg.at<uchar>(static_cast<int>(y_2), static_cast<int>(x_2) + 1)) - 
+                                 static_cast<double>(dstImg.at<uchar>(static_cast<int>(y_2), static_cast<int>(x_2) - 1))) / 2.0;
+                    double dgy = (static_cast<double>(dstImg.at<uchar>(static_cast<int>(y_2) + 1, static_cast<int>(x_2))) - 
+                                 static_cast<double>(dstImg.at<uchar>(static_cast<int>(y_2) - 1, static_cast<int>(x_2)))) / 2.0;
                     
                     // 填充系数矩阵
                     int idx = m * windowSize + n;
                     matA.at<double>(idx, 0) = 1.0;
-                    matA.at<double>(idx, 1) = newRGray;
+                    matA.at<double>(idx, 1) = g2;
                     matA.at<double>(idx, 2) = dgx;
-                    matA.at<double>(idx, 3) = newRX * dgx;
-                    matA.at<double>(idx, 4) = newRY * dgx;
+                    matA.at<double>(idx, 3) = x_2 * dgx;
+                    matA.at<double>(idx, 4) = y_2 * dgx;
                     matA.at<double>(idx, 5) = dgy;
-                    matA.at<double>(idx, 6) = newRX * dgy;
-                    matA.at<double>(idx, 7) = newRY * dgy;
+                    matA.at<double>(idx, 6) = x_2 * dgy;
+                    matA.at<double>(idx, 7) = y_2 * dgy;
                     
                     // 填充常数项矩阵
-                    double lGrey = static_cast<double>(srcImg.at<uchar>(y_1, x_1));
-                    matL.at<double>(idx, 0) = lGrey - radioRGrey;
+                    double g1 = static_cast<double>(srcImg.at<uchar>(y_1, x_1));
+                    matL.at<double>(idx, 0) = g1 - g2;
                 }
             }
             
@@ -293,22 +262,18 @@ void lsqMatch(const cv::Mat &srcImg,
             b2 = b2 + a2 * db1 + b2 * db2;
             
             // 计算相关系数
-            latterCoefficient = NCC_2d(srcPatch, dstPatch);
-            
-            // 计算最佳匹配点
-            double leftResX = factor1 / factor1_2;
-            double leftResY = factor2 / factor2_2;
-            rightResX = a0 + a1 * leftResX + a2 * leftResY;
-            rightResY = b0 + b1 * leftResX + b2 * leftResY;
-            
+            currNCC = NCC_2d(srcPatch, dstPatch);
+            if (currNCC < preNCC) break;
         }
         
         // 保存结果
-        if (latterCoefficient > 0.8) { // 设置阈值
+        if (preNCC > 0.8) { // 设置阈值
+            x2 = a0 + a1 * x1 + a2 * y1;
+            y2 = b0 + b1 * x1 + b2 * y1;
             CMatch matchLsq;
-            matchLsq.dist = latterCoefficient;
+            matchLsq.dist = preNCC;
             matchLsq.srcPt = srcPt;
-            matchLsq.dstPt = cv::Point2d(rightResX, rightResY);
+            matchLsq.dstPt = cv::Point2d(x2, y2);
             matchesLsq.push_back(matchLsq);
         }
     }
