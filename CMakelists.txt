@@ -1,29 +1,111 @@
 cmake_minimum_required(VERSION 4.0)
 
 PROJECT(Image_Match)
+set(CMAKE_BUILD_TYPE Release)
 
-find_package(OpenCV REQUIRED)
+# 尝试查找系统安装的 OpenCV
+find_package(OpenCV QUIET)
 
+# 查找必需的系统库
+find_package(ZLIB REQUIRED)
+find_package(PNG REQUIRED)
+
+# 添加 FLTK 子目录
 add_subdirectory(thirdparty/fltk-1.4.4)
-# target_include_directories(my_fltk_app PRIVATE ${FLTK_INCLUDE_DIRS})
 
-include_directories(
-    ${PROJECT_SOURCE_DIR}/thirdparty/eigen/3.4.0_1/include
-    ${PROJECT_SOURCE_DIR}/src
-)
-
+# 定义可执行文件及其源文件
 add_executable(${PROJECT_NAME} 
     main.cpp
     src/ImageProcessor.cpp
     src/myHarrisDetector.cpp
     src/myMatch.cpp
-    )
+)
 
+# 链接 FLTK 库
 target_link_libraries(${PROJECT_NAME} 
     PRIVATE 
         fltk::fltk
-        fltk::images
-        $<$<BOOL:${FLTK_BUILD_GL}>:fltk::gl>
 )
-target_link_libraries(${PROJECT_NAME} PRIVATE ${OpenCV_LIBS})
 
+# 获取第三方静态库
+file(GLOB THIRD_PARTY_LIBS "${CMAKE_CURRENT_SOURCE_DIR}/lib/thirdparty/*.a")
+
+# 链接系统库和框架
+target_link_libraries(${PROJECT_NAME} 
+    PRIVATE 
+        ${ZLIB_LIBRARIES}
+        ${PNG_LIBRARIES}
+        "-framework Accelerate"
+)
+
+# 根据是否找到 OpenCV 选择不同的链接方式
+if(OpenCV_FOUND)
+    # 使用系统安装的 OpenCV
+    message(STATUS "Using system installed OpenCV")
+    target_link_libraries(${PROJECT_NAME} 
+        PRIVATE 
+            ${OpenCV_LIBS}
+    )
+    target_include_directories(${PROJECT_NAME} PUBLIC
+        ${PROJECT_SOURCE_DIR}/src
+        ${OpenCV_INCLUDE_DIRS}
+    )
+else()
+    # 使用本地精简版 OpenCV
+    message(STATUS "Using local OpenCV libraries")
+    set(OPENCV_LIB_DIR ${CMAKE_CURRENT_SOURCE_DIR}/lib)
+    set(OPENCV_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/lib/opencv4)
+    
+    target_include_directories(${PROJECT_NAME} PUBLIC
+        ${PROJECT_SOURCE_DIR}/src
+        ${OPENCV_INCLUDE_DIR}
+    )
+    
+    target_link_libraries(${PROJECT_NAME} 
+        PRIVATE 
+            ${OPENCV_LIB_DIR}/libopencv_core.dylib
+            ${OPENCV_LIB_DIR}/libopencv_imgproc.dylib
+            ${OPENCV_LIB_DIR}/libopencv_imgcodecs.dylib
+    )
+    
+    # 创建bin目录并拷贝动态库到build/bin中
+    set(BIN_DIR ${CMAKE_BINARY_DIR}/bin)
+    
+    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E make_directory ${BIN_DIR}
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${CMAKE_CURRENT_SOURCE_DIR}/lib/libopencv_core.4.13.0.dylib
+            ${BIN_DIR}/
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${CMAKE_CURRENT_SOURCE_DIR}/lib/libopencv_core.413.dylib
+            ${BIN_DIR}/
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${CMAKE_CURRENT_SOURCE_DIR}/lib/libopencv_core.dylib
+            ${BIN_DIR}/
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${CMAKE_CURRENT_SOURCE_DIR}/lib/libopencv_imgproc.4.13.0.dylib
+            ${BIN_DIR}/
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${CMAKE_CURRENT_SOURCE_DIR}/lib/libopencv_imgproc.413.dylib
+            ${BIN_DIR}/
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${CMAKE_CURRENT_SOURCE_DIR}/lib/libopencv_imgproc.dylib
+            ${BIN_DIR}/
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${CMAKE_CURRENT_SOURCE_DIR}/lib/libopencv_imgcodecs.4.13.0.dylib
+            ${BIN_DIR}/
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${CMAKE_CURRENT_SOURCE_DIR}/lib/libopencv_imgcodecs.413.dylib
+            ${BIN_DIR}/
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${CMAKE_CURRENT_SOURCE_DIR}/lib/libopencv_imgcodecs.dylib
+            ${BIN_DIR}/
+        COMMENT "Copying OpenCV libraries to bin directory"
+    )
+endif()
+
+# 设置可执行文件输出目录为bin
+set(BIN_DIR ${CMAKE_BINARY_DIR}/bin)
+set_target_properties(${PROJECT_NAME} PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${BIN_DIR}
+)

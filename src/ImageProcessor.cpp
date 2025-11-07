@@ -3,12 +3,13 @@
 #include "myMatch.hpp"
 #include <sstream>
 #include <chrono>
+#include <iostream>
 
 std::vector<cv::Point2d> myHarrisDetector(cv::Mat img);
 bool ImageProcessor::loadImages() {
     img1 = cv::imread(file1_path);
     img2 = cv::imread(file2_path);
-    
+    std::cout << "Image 1 size: " << img1.cols << "x" << img1.rows << std::endl;
     return !img1.empty() && !img2.empty();
 }
 
