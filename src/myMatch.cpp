@@ -84,7 +84,6 @@ void drawMatches(const cv::Mat &srcImg, const cv::Mat &dstImg, cv::Mat &outputIm
     dstImg.copyTo(outputImg(cv::Rect(srcImg.cols, 0, dstImg.cols, dstImg.rows)));
 
     cv::Point pt1, pt2;
-    static std::uniform_int_distribution<int> u(0, 255);
 
     int cnt = 0;
     for (const auto &match : matches)
