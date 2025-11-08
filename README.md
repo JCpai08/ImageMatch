@@ -27,7 +27,7 @@
 3. 配置编译：
     ```bash
    cmake ..
-   cmake --build . config=Release --parallel
+   cmake --build . --config=Release --parallel
 4. 编译完成后，可执行文件位于 build/Release/Image_Match.exe，运行：
     ```bash
     Release\Image_Match.exe
