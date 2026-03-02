@@ -5,6 +5,14 @@
 #include <chrono>
 #include <iostream>
 
+template <class Func>
+long benchmark(Func const &func){
+    auto t0 = std::chrono::steady_clock::now();
+    func();
+    auto t1 = std::chrono::steady_clock::now();
+    return std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0).count();
+}
+
 std::vector<cv::Point2d> myHarrisDetector(cv::Mat img);
 bool ImageProcessor::loadImages() {
     img1 = cv::imread(file1_path);
@@ -29,23 +37,20 @@ bool ImageProcessor::processImages(Fl_Progress* progress) {
         cv::cvtColor(img1, img_gray1, cv::COLOR_BGR2GRAY);
         cv::cvtColor(img2, img_gray2, cv::COLOR_BGR2GRAY);
 
-        auto t = std::chrono::high_resolution_clock::now();
-        std::vector<cv::Point2d> corners1 = myHarrisDetector(img_gray1);
-        std::vector<cv::Point2d> corners2 = myHarrisDetector(img_gray2);
-        // cv::cornerHarris(img_gray1, img_gray1,5, 3, 0.04);
-        // cv::cornerHarris(img_gray2, img_gray2,5, 3, 0.04);
-        auto end_t = std::chrono::high_resolution_clock::now();
-        auto elapsed = std::chrono::duration<double>(end_t - t);
-        double harris_time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count();
+        std::vector<cv::Point2d> corners1, corners2;
+        double harris_time_ms = benchmark([&]{
+            corners1 = myHarrisDetector(img_gray1);
+            corners2 = myHarrisDetector(img_gray2);
+            // cv::cornerHarris(img_gray1, img_gray1,5, 3, 0.04);
+            // cv::cornerHarris(img_gray2, img_gray2,5, 3, 0.04);
+        });
 
         progress->label("匹配中...");
         Fl::check();
-        t = std::chrono::high_resolution_clock::now();
         std::vector<CMatch> matches;
-        correlationMatch(img_gray1, img_gray2, corners1, corners2, matches, windowSize, progress);
-        end_t = std::chrono::high_resolution_clock::now();
-        elapsed = std::chrono::duration<double>(end_t - t);
-        double match_time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count();
+        double match_time_ms = benchmark([&]{
+            correlationMatch(img_gray1, img_gray2, corners1, corners2, matches, windowSize, progress);
+        });
         std::sort(matches.begin(), matches.end(), 
           [](const CMatch& a, const CMatch& b) {
               return a.dist > b.dist;
@@ -53,12 +58,10 @@ bool ImageProcessor::processImages(Fl_Progress* progress) {
         
         progress->label("单点最小二乘匹配优化中...");
         Fl::check();
-        t = std::chrono::high_resolution_clock::now();
         std::vector<CMatch> matchesLsq;
-        lsqMatch(img_gray1, img_gray2, matches,matchesLsq, windowSize, progress);
-        end_t = std::chrono::high_resolution_clock::now();
-        elapsed = std::chrono::duration<double>(end_t - t);
-        double lsq_time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count();
+        double lsq_time_ms = benchmark([&]{
+            lsqMatch(img_gray1, img_gray2, matches, matchesLsq, windowSize, progress);
+        });
 
         progress->label("匹配计算完成!");
         Fl::check();
